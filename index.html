@@ -1,10 +1,10 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Local Log Panel</title>
+    <title>Security Panel</title>
     <meta charset="UTF-8">
     <style>
-        body { font-family: Arial, sans-serif; background:#111; color:#eee; margin:0; }
+        body { font-family: Arial; background:#111; color:#eee; margin:0; }
         .center { text-align:center; padding-top:100px; }
         input { padding:10px; width:250px; }
         button { padding:10px 20px; margin-top:10px; cursor:pointer; }
@@ -16,6 +16,7 @@
 </head>
 <body>
 
+<!-- LOGIN VIEW -->
 <div id="login-view" class="center">
     <div class="box">
         <h1>Admin Login</h1>
@@ -25,71 +26,88 @@
     </div>
 </div>
 
+<!-- ADMIN VIEW -->
 <div id="admin-view" style="display:none;">
     <div class="wrap">
-        <h1>Local Logs</h1>
+        <h1>Failed Login Attempts</h1>
         <p>These logs are stored ONLY on this device.</p>
 
         <table id="log-table">
-            <tr><th>Time</th><th>Event</th></tr>
+            <tr><th>Time</th><th>Wrong Password Entered</th></tr>
         </table>
 
-        <button onclick="addLog()">Add Test Log</button>
         <button onclick="clearLogs()">Clear Logs</button>
         <button onclick="logout()">Logout</button>
     </div>
 </div>
 
 <script>
-    const PASSWORD = "i3u8rify47y";
-
-    function showView() {
-        const authed = localStorage.getItem("auth") === "true";
-        document.getElementById("login-view").style.display = authed ? "none" : "block";
-        document.getElementById("admin-view").style.display = authed ? "block" : "none";
-        if (authed) loadLogs();
-    }
+    const REAL_PASSWORD = "i3u8rify47y";
 
     function login() {
-        if (document.getElementById("pw").value === PASSWORD) {
+        const entered = document.getElementById("pw").value;
+
+        if (entered === REAL_PASSWORD) {
             localStorage.setItem("auth", "true");
-            showView();
+            loadLogs();
+            showAdmin();
         } else {
+            logFailedAttempt(entered);
             alert("Incorrect password");
         }
     }
 
-    function logout() {
-        localStorage.removeItem("auth");
-        showView();
+    function logFailedAttempt(wrongPw) {
+        const logs = JSON.parse(localStorage.getItem("pwLogs") || "[]");
+        logs.push({
+            time: new Date().toLocaleString(),
+            wrongPassword: wrongPw
+        });
+        localStorage.setItem("pwLogs", JSON.stringify(logs));
     }
 
     function loadLogs() {
-        const logs = JSON.parse(localStorage.getItem("logs") || "[]");
+        const logs = JSON.parse(localStorage.getItem("pwLogs") || "[]");
         const table = document.getElementById("log-table");
-        table.innerHTML = "<tr><th>Time</th><th>Event</th></tr>";
-        logs.forEach(log => {
-            table.innerHTML += `<tr><td>${log.time}</td><td>${log.event}</td></tr>`;
-        });
-    }
+        table.innerHTML = "<tr><th>Time</th><th>Wrong Password Entered</th></tr>";
 
-    function addLog() {
-        const logs = JSON.parse(localStorage.getItem("logs") || "[]");
-        logs.push({
-            time: new Date().toLocaleString(),
-            event: "Test event added"
+        logs.forEach(l => {
+            table.innerHTML += `
+                <tr>
+                    <td>${l.time}</td>
+                    <td>${l.wrongPassword}</td>
+                </tr>
+            `;
         });
-        localStorage.setItem("logs", JSON.stringify(logs));
-        loadLogs();
     }
 
     function clearLogs() {
-        localStorage.removeItem("logs");
+        localStorage.removeItem("pwLogs");
         loadLogs();
     }
 
-    showView();
+    function logout() {
+        localStorage.removeItem("auth");
+        showLogin();
+    }
+
+    function showAdmin() {
+        document.getElementById("login-view").style.display = "none";
+        document.getElementById("admin-view").style.display = "block";
+    }
+
+    function showLogin() {
+        document.getElementById("login-view").style.display = "block";
+        document.getElementById("admin-view").style.display = "none";
+    }
+
+    // Auto-login if already authenticated
+    if (localStorage.getItem("auth") === "true") {
+        loadLogs();
+        showAdmin();
+    }
 </script>
 
 </body>
 </html>
+
