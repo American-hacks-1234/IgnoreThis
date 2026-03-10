@@ -1,0 +1,152 @@
+// Install deps first:
+//   npm init -y
+//   npm install express
+
+const express = require("express");
+const path = require("path");
+const app = express();
+
+const PORT = process.env.PORT || 3000;
+const ADMIN_PASSWORD = "i3u8rify47y";
+
+// In-memory log storage (use a DB or file in production)
+const logs = [];
+
+// Middleware to parse JSON/form bodies
+app.use(express.urlencoded({ extended: true }));
+app.use(express.json());
+
+// Log every visit to any route except /admin and /login
+app.use((req, res, next) => {
+    if (req.path !== "/admin" && req.path !== "/login") {
+        const ip =
+            req.headers["x-forwarded-for"]?.split(",")[0].trim() ||
+            req.socket.remoteAddress;
+        const ua = req.headers["user-agent"];
+        const time = new Date().toISOString();
+
+        logs.push({ ip, ua, time, path: req.path });
+        console.log("Logged visit:", { ip, ua, time, path: req.path });
+    }
+    next();
+});
+
+// Simple session-like flag in memory (for demo only)
+let adminLoggedIn = false;
+
+// Landing page with login form
+app.get("/", (req, res) => {
+    res.send(`
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Secure Access</title>
+    <style>
+        body { font-family: Arial, sans-serif; background: #111; color: #eee; text-align: center; padding-top: 100px; }
+        input { padding: 10px; margin: 10px; width: 250px; }
+        button { padding: 10px 20px; cursor: pointer; }
+        .box { background:#222; display:inline-block; padding:30px; border-radius:8px; }
+    </style>
+</head>
+<body>
+    <div class="box">
+        <h1>Admin Login</h1>
+        <form method="POST" action="/login">
+            <input type="password" name="password" placeholder="Enter password" required />
+            <br>
+            <button type="submit">Login</button>
+        </form>
+    </div>
+</body>
+</html>
+    `);
+});
+
+// Handle login
+app.post("/login", (req, res) => {
+    const { password } = req.body;
+    if (password === ADMIN_PASSWORD) {
+        adminLoggedIn = true;
+        return res.redirect("/admin");
+    }
+    return res.send(`
+<!DOCTYPE html>
+<html>
+<head><title>Login Failed</title></head>
+<body style="background:#111;color:#eee;font-family:Arial;text-align:center;padding-top:100px;">
+    <h2>Incorrect password</h2>
+    <a href="/">Go back</a>
+</body>
+</html>
+    `);
+});
+
+// Admin dashboard
+app.get("/admin", (req, res) => {
+    if (!adminLoggedIn) {
+        return res.redirect("/");
+    }
+
+    const rows = logs
+        .map(
+            (l) => `
+        <tr>
+            <td>${l.ip}</td>
+            <td>${l.time}</td>
+            <td>${l.path}</td>
+            <td>${l.ua}</td>
+        </tr>`
+        )
+        .join("");
+
+    res.send(`
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Visitor Logs</title>
+    <style>
+        body { font-family: Arial, sans-serif; background:#111; color:#eee; padding:20px; }
+        table { width:100%; border-collapse:collapse; margin-top:20px; }
+        th, td { border:1px solid #444; padding:8px; font-size:14px; word-break:break-all; }
+        th { background:#222; }
+        h1 { margin-bottom:10px; }
+        .topbar { display:flex; justify-content:space-between; align-items:center; }
+        a { color:#4af; }
+    </style>
+</head>
+<body>
+    <div class="topbar">
+        <h1>Visitor Logs</h1>
+        <form method="POST" action="/logout">
+            <button type="submit">Logout</button>
+        </form>
+    </div>
+    <table>
+        <tr>
+            <th>IP</th>
+            <th>Time</th>
+            <th>Path</th>
+            <th>User Agent</th>
+        </tr>
+        ${rows || '<tr><td colspan="4">No logs yet.</td></tr>'}
+    </table>
+</body>
+</html>
+    `);
+});
+
+// Logout
+app.post("/logout", (req, res) => {
+    adminLoggedIn = false;
+    res.redirect("/");
+});
+
+// Optional: JSON logs endpoint (if you ever want to fetch via JS)
+app.get("/logs.json", (req, res) => {
+    if (!adminLoggedIn) return res.status(403).json({ error: "Unauthorized" });
+    res.json(logs);
+});
+
+app.listen(PORT, () => {
+    console.log(`Server running on http://localhost:${PORT}`);
+});
