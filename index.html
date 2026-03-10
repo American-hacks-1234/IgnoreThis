@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Security Panel</title>
+    <title>Local Log Panel</title>
     <meta charset="UTF-8">
     <style>
         body { font-family: Arial, sans-serif; background:#111; color:#eee; margin:0; }
@@ -10,7 +10,8 @@
         button { padding:10px 20px; margin-top:10px; cursor:pointer; }
         .box { background:#222; padding:40px; display:inline-block; border-radius:8px; }
         .wrap { padding:40px; }
-        a { color:#4af; }
+        table { width:100%; border-collapse:collapse; margin-top:20px; }
+        th, td { border:1px solid #444; padding:8px; }
     </style>
 </head>
 <body>
@@ -26,13 +27,15 @@
 
 <div id="admin-view" style="display:none;">
     <div class="wrap">
-        <h1>Security Dashboard</h1>
-        <p>Your visitor IP logs are stored in Cloudflare (proxying this site).</p>
-        <p>
-            <a href="https://dash.cloudflare.com" target="_blank">
-                Open Cloudflare Logs
-            </a>
-        </p>
+        <h1>Local Logs</h1>
+        <p>These logs are stored ONLY on this device.</p>
+
+        <table id="log-table">
+            <tr><th>Time</th><th>Event</th></tr>
+        </table>
+
+        <button onclick="addLog()">Add Test Log</button>
+        <button onclick="clearLogs()">Clear Logs</button>
         <button onclick="logout()">Logout</button>
     </div>
 </div>
@@ -44,11 +47,11 @@
         const authed = localStorage.getItem("auth") === "true";
         document.getElementById("login-view").style.display = authed ? "none" : "block";
         document.getElementById("admin-view").style.display = authed ? "block" : "none";
+        if (authed) loadLogs();
     }
 
     function login() {
-        const pw = document.getElementById("pw").value;
-        if (pw === PASSWORD) {
+        if (document.getElementById("pw").value === PASSWORD) {
             localStorage.setItem("auth", "true");
             showView();
         } else {
@@ -61,7 +64,30 @@
         showView();
     }
 
-    // On load
+    function loadLogs() {
+        const logs = JSON.parse(localStorage.getItem("logs") || "[]");
+        const table = document.getElementById("log-table");
+        table.innerHTML = "<tr><th>Time</th><th>Event</th></tr>";
+        logs.forEach(log => {
+            table.innerHTML += `<tr><td>${log.time}</td><td>${log.event}</td></tr>`;
+        });
+    }
+
+    function addLog() {
+        const logs = JSON.parse(localStorage.getItem("logs") || "[]");
+        logs.push({
+            time: new Date().toLocaleString(),
+            event: "Test event added"
+        });
+        localStorage.setItem("logs", JSON.stringify(logs));
+        loadLogs();
+    }
+
+    function clearLogs() {
+        localStorage.removeItem("logs");
+        loadLogs();
+    }
+
     showView();
 </script>
 
